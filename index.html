@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Похождение лесного эльфа</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- СТАРТОВЫЙ ЭКРАН -->
+        <div id="startScreen" class="screen active">
+            <div class="container">
+                <h1>🍃 Похождение лесного эльфа</h1>
+                <div class="info">
+                    <p>⭐ <span>Добро пожаловать, странник!</span></p>
+                    <p>🏹 Управляй эльфом с помощью стрелок ← и →</p>
+                    <p>⚔️ Уничтожай врагов: Гоблинов, Троллей и Орков</p>
+                    <p>🛡️ Используй умения: 1 - Выстрел, 2 - Блок, 3 - Три стрелы, 4 - Град стрел</p>
+                    <p>⏸️ Нажми ESC, чтобы поставить игру на паузу</p>
+                    <p>🏁 <span>Дойди до конца карты, чтобы победить!</span></p>
+                </div>
+                <input type="text" id="playerName" placeholder="Введите имя героя">
+                <button id="startBtn" disabled>Начать игру</button>
+            </div>
+        </div>
+
+        <!-- ИГРОВОЙ ЭКРАН -->
+        <div id="gameScreen" class="screen">
+            <!-- Верхняя панель -->
+            <div id="gameUI">
+                <div id="playerStats">
+                    <span>❤️ HP: <span id="hpDisplay">100</span></span>
+                    <span>💧 MP: <span id="mpDisplay">100</span></span>
+                    <span>⚔️ Убийства: <span id="scoreDisplay">0</span></span>
+                    <span>⏱️ <span id="timerDisplay">00:00</span></span>
+                </div>
+                <div id="skillsPanel">
+                    <button class="skill-btn" data-skill="1">1. 🏹 Выстрел</button>
+                    <button class="skill-btn" data-skill="2">2. 🛡️ Блок</button>
+                    <button class="skill-btn" data-skill="3">3. 🏹🏹🏹 Три стрелы</button>
+                    <button class="skill-btn" data-skill="4">4. ☄️ Град стрел</button>
+                </div>
+            </div>
+
+            <!-- Игровой мир (Canvas) -->
+            <div id="gameWorld">
+                <canvas id="gameCanvas"></canvas>
+            </div>
+        </div>
+
+        <!-- ЭКРАН РЕЗУЛЬТАТОВ -->
+        <div id="endScreen" class="screen">
+            <h2>🏁 Игра окончена!</h2>
+            <div id="resultsContainer"></div>
+            <button id="restartBtn" class="btn btn-primary">Играть сначала</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

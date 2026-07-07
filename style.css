@@ -1,0 +1,226 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #0f2027;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+#app {
+    width: 1000px;
+    height: 650px;
+    background: #2c3e50;
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+    position: relative;
+    overflow: hidden;
+}
+
+/* ===== ЭКРАНЫ ===== */
+.screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    padding: 20px;
+}
+.screen.active {
+    display: flex;
+}
+
+/* ===== СТАРТОВЫЙ ЭКРАН ===== */
+#startScreen {
+    background: #0f2027;
+    text-align: center;
+}
+
+.container {
+    max-width: 550px;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 40px;
+    border-radius: 25px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+}
+
+h1 {
+    font-size: 2.5rem;
+    color: #ffd700;
+    margin-bottom: 25px;
+    animation: pulse 2s infinite alternate;
+}
+
+@keyframes pulse {
+    0% {
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+    }
+    100% {
+        text-shadow: 0 0 40px rgba(255, 215, 0, 0.8);
+    }
+}
+
+.info {
+    background: rgba(0, 0, 0, 0.4);
+    padding: 20px;
+    border-radius: 15px;
+    margin-bottom: 25px;
+    text-align: left;
+}
+
+.info p {
+    color: #ddd;
+    margin: 8px 0;
+    font-size: 1rem;
+}
+
+.info span {
+    color: #ffd700;
+    font-weight: bold;
+}
+
+input {
+    width: 100%;
+    padding: 14px;
+    border-radius: 30px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+    outline: none;
+}
+
+input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+input:focus {
+    border-color: #ffd700;
+}
+
+button {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 30px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    background: #ffd700;
+    color: #0f2027;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+button:hover:not(:disabled) {
+    transform: scale(1.02);
+}
+
+button:disabled {
+    background: #555;
+    color: #888;
+    cursor: not-allowed;
+}
+
+/* ===== ИГРОВОЙ ЭКРАН ===== */
+#gameScreen {
+    background: #2c3e50;
+    justify-content: flex-start;
+    padding: 0;
+}
+
+#gameUI {
+    width: 100%;
+    padding: 10px 20px;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    z-index: 10;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+#playerStats {
+    display: flex;
+    gap: 15px;
+    font-size: 0.9rem;
+    color: #fff;
+}
+
+#playerStats span {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 5px 12px;
+    border-radius: 20px;
+}
+
+#skillsPanel {
+    display: flex;
+    gap: 5px;
+}
+
+.skill-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ecf0f1;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: auto;
+}
+
+.skill-btn:hover {
+    background: rgba(255, 215, 0, 0.3);
+    border-color: #ffd700;
+}
+
+#gameWorld {
+    flex-grow: 1;
+    width: 100%;
+    position: relative;
+    background: #4a7c59;
+}
+
+#gameCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: #4a7c59;
+}
+
+/* ===== ЭКРАН РЕЗУЛЬТАТОВ ===== */
+#endScreen {
+    background: #0f2027;
+}
+
+#endScreen h2 {
+    color: #ffd700;
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+}
+
+#resultsContainer {
+    color: #fff;
+    margin-bottom: 20px;
+}
+
+.btn-primary {
+    width: auto;
+    padding: 14px 40px;
+}
