@@ -60,6 +60,73 @@ let spawnTimer = 0;
 const MAX_ENEMIES = 10;
 const WORLD_END = 2500;
 
+// ========================================
+// 5.8. УМЕНИЯ
+// ========================================
+const skills = {
+    shot: {
+        name: 'Выстрел',
+        key: '1',
+        mpCost: 0,
+        cooldown: 0,
+        damage: 15,
+        description: 'Обычный выстрел'
+    },
+    shield: {
+        name: 'Блок',
+        key: '2',
+        mpCost: 5,
+        cooldown: 0,
+        duration: 60, // кадров
+        description: 'Блокирует урон на 1 секунду'
+    },
+    tripleShot: {
+        name: 'Три стрелы',
+        key: '3',
+        mpCost: 10,
+        cooldown: 120, // 2 секунды
+        damage: 40,
+        description: 'Выпускает 3 стрелы'
+    },
+    rainOfArrows: {
+        name: 'Град стрел',
+        key: '4',
+        mpCost: 30,
+        cooldown: 600, // 10 секунд
+        damage: 100,
+        description: 'Уничтожает всех врагов в радиусе'
+    }
+};
+
+// Состояние умений
+let skillCooldowns = {
+    shot: 0,
+    shield: 0,
+    tripleShot: 0,
+    rainOfArrows: 0
+};
+
+let shieldActive = false;
+let shieldTimer = 0;
+
+// ========================================
+// 5.9. ПАУЗА
+// ========================================
+let isPaused = false;
+
+// ========================================
+// 5.10. РЕГЕНЕРАЦИЯ
+// ========================================
+let regenTimer = 0;
+const HP_REGEN = 2;    // 2 HP в секунду
+const MP_REGEN = 5;    // 5 MP в секунду
+
+// ========================================
+// 5.11. ТАЙМЕР
+// ========================================
+let gameTime = 0;
+let timerInterval = null;
+
 // Типы врагов
 const ENEMY_TYPES = {
     goblin: {
@@ -456,31 +523,62 @@ function updateUI() {
         });
     }
 
-    // 9. Обновление логики
     function update() {
-        let moveX = 0;
-        if (keys.left) {
-            moveX = -player.speed;
-            player.facing = 'left';
-        } else if (keys.right) {
-            moveX = player.speed;
-            player.facing = 'right';
-        }
+    if (isPaused) return;
+    
+    // Движение игрока
+    let moveX = 0;
+    if (keys.left) {
+        moveX = -player.speed;
+        player.facing = 'left';
+    } else if (keys.right) {
+        moveX = player.speed;
+        player.facing = 'right';
+    }
 
-        if (moveX !== 0) {
-            const centerX = CANVAS_WIDTH / 2 - player.width / 2;
-            if (player.x + moveX < centerX && cameraX > 0) {
-                cameraX = Math.max(0, cameraX + moveX);
-            } else if (player.x + moveX > centerX && cameraX < 2000) {
-                cameraX = Math.min(2000, cameraX + moveX);
-            } else {
-                const newX = player.x + moveX;
-                if (newX >= 0 && newX + player.width <= CANVAS_WIDTH) {
-                    player.x = newX;
-                }
+    if (moveX !== 0) {
+        const centerX = CANVAS_WIDTH / 2 - player.width / 2;
+        if (player.x + moveX < centerX && cameraX > 0) {
+            cameraX = Math.max(0, cameraX + moveX);
+        } else if (player.x + moveX > centerX && cameraX < 2000) {
+            cameraX = Math.min(2000, cameraX + moveX);
+        } else {
+            const newX = player.x + moveX;
+            if (newX >= 0 && newX + player.width <= CANVAS_WIDTH) {
+                player.x = newX;
             }
         }
     }
+
+    // Регенерация HP и MP
+    regenTimer++;
+    if (regenTimer >= 60) { // каждую секунду
+        hp = Math.min(100, hp + HP_REGEN);
+        mp = Math.min(100, mp + MP_REGEN);
+        regenTimer = 0;
+        updateUI();
+    }
+
+    // Кулдауны умений
+    for (let key in skillCooldowns) {
+        if (skillCooldowns[key] > 0) {
+            skillCooldowns[key]--;
+        }
+    }
+
+    // Обновление щита
+    if (shieldActive) {
+        shieldTimer--;
+        if (shieldTimer <= 0) {
+            shieldActive = false;
+        }
+    }
+
+    // Проверка конца карты (победа)
+    if (cameraX >= 2000 && player.x >= CANVAS_WIDTH / 2 - player.width / 2) {
+        endGame(true);
+    }
+}
 
     function gameLoop() {
     if (!gameRunning) return;
@@ -531,6 +629,25 @@ function updateUI() {
 
     // 11. Запуск игры
     function startGame() {
+        playerName = name;
+        gameRunning = true;
+        isPaused = false;
+        gameTime = 0;
+        hp = 100;
+        mp = 100;
+        score = 0;
+        enemies = [];
+        arrows = [];
+        
+        // Запускаем таймер
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            if (!isPaused && gameRunning) {
+                gameTime++;
+                document.getElementById('timerDisplay').textContent = formatTime(gameTime);
+            }
+        }, 1000);
+
         console.log('🚀 Игра запускается...');
         gameRunning = true;
         
@@ -549,6 +666,60 @@ function updateUI() {
         gameLoop();
 
         console.log('✅ Игровой цикл запущен!');
+    }
+    // ========================================
+    // ЗАВЕРШЕНИЕ ИГРЫ
+    // ========================================
+    function endGame(win) {
+        gameRunning = false;
+        if (animationId) cancelAnimationFrame(animationId);
+        if (timerInterval) clearInterval(timerInterval);
+        
+        // Останавливаем игровой цикл
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+            animationId = null;
+        }
+        
+        // Скрываем игровой экран
+        if (gameScreen) {
+            gameScreen.classList.remove('active');
+            gameScreen.style.display = 'none';
+        }
+        
+        // Показываем экран результатов
+        if (endScreen) {
+            endScreen.classList.add('active');
+            endScreen.style.display = 'flex';
+        }
+        
+        // Обновляем заголовок
+        const message = win ? '🎉 Вы победили!' : '💀 Вы проиграли!';
+        const titleElement = document.querySelector('#endScreen h2');
+        if (titleElement) {
+            titleElement.textContent = message;
+        }
+        
+        // Показываем статистику
+        const container = document.getElementById('resultsContainer');
+        if (container) {
+            container.innerHTML = `
+                <p>👤 Игрок: ${playerName || 'Гость'}</p>
+                <p>⚔️ Убийства: ${score}</p>
+                <p>⏱️ Время: ${formatTime(gameTime)}</p>
+                <p>❤️ HP: ${Math.round(hp)}</p>
+                <hr>
+                <p style="color: #ffd700;">🏆 Ваш результат сохранён!</p>
+            `;
+        }
+        
+        console.log('Игра окончена! Результат:', { playerName, score, time: gameTime });
+    }
+
+    function formatTime(seconds) {
+    const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
+    const secs = String(seconds % 60).padStart(2, '0');
+    return `${mins}:${secs}`;
     }
 
     // 12. Обработчик кнопки "Начать"
@@ -575,9 +746,32 @@ function updateUI() {
             e.preventDefault();
         }
         if (e.key === ' ' || e.key === 'Space') {
-    shootArrow();
-    e.preventDefault();
-}
+            shootArrow();
+            e.preventDefault();
+        }
+        // ===== УМЕНИЯ =====
+        if (e.key === '1') {
+            useSkill('shot');
+            e.preventDefault();
+        }
+        if (e.key === '2') {
+            useSkill('shield');
+            e.preventDefault();
+        }
+        if (e.key === '3') {
+            useSkill('tripleShot');
+            e.preventDefault();
+        }
+        if (e.key === '4') {
+            useSkill('rainOfArrows');
+            e.preventDefault();
+        }
+
+        // ===== ПАУЗА =====
+        if (e.key === 'Escape') {
+            togglePause();
+            e.preventDefault();
+        }
     });
 
     document.addEventListener('keyup', function(e) {
@@ -594,23 +788,123 @@ function updateUI() {
     const restartBtn = document.getElementById('restartBtn');
     if (restartBtn) {
         restartBtn.addEventListener('click', function() {
-            // Скрываем экран результатов
-            if (endScreen) {
-                endScreen.classList.remove('active');
-                endScreen.style.display = 'none';
-            }
-            // Показываем стартовый экран
-            if (startScreen) {
-                startScreen.classList.add('active');
-                startScreen.style.display = 'flex';
-            }
-            // Сбрасываем поле ввода
-            playerNameInput.value = '';
-            startBtn.disabled = true;
-            gameRunning = false;
-            if (animationId) cancelAnimationFrame(animationId);
+        endScreen.classList.remove('active');
+        endScreen.style.display = 'none';
+        startScreen.classList.add('active');
+        startScreen.style.display = 'flex';
+        playerNameInput.value = '';
+        startBtn.disabled = true;
+        gameRunning = false;
+        if (animationId) cancelAnimationFrame(animationId);
+        if (timerInterval) clearInterval(timerInterval);
         });
     }
 
+    // ========================================
+    // ИСПОЛЬЗОВАНИЕ УМЕНИЙ
+    // ========================================
+    function useSkill(skillName) {
+        if (isPaused) return;
+        if (!gameRunning) return;
+        
+        const skill = skills[skillName];
+        const cooldown = skillCooldowns[skillName];
+        
+        // Проверка: достаточно ли MP
+        if (mp < skill.mpCost) {
+            console.log('Недостаточно MP!');
+            return;
+        }
+        
+        // Проверка: готово ли умение
+        if (cooldown > 0) {
+            console.log('Умение на перезарядке!');
+            return;
+        }
+        
+        // Списываем MP
+        mp -= skill.mpCost;
+        
+        // Применяем эффект
+        switch (skillName) {
+            case 'shot':
+                // Обычный выстрел
+                shootArrow();
+                skillCooldowns.shot = 0;
+                break;
+                
+            case 'shield':
+                // Блок — активируем щит
+                shieldActive = true;
+                shieldTimer = skill.duration;
+                skillCooldowns.shield = 0;
+                console.log('🛡️ Щит активирован!');
+                break;
+                
+            case 'tripleShot':
+                // Три стрелы
+                for (let i = 0; i < 3; i++) {
+                    setTimeout(() => {
+                        shootArrow();
+                    }, i * 100);
+                }
+                skillCooldowns.tripleShot = skill.cooldown;
+                break;
+                
+            case 'rainOfArrows':
+                // Град стрел — уничтожает всех врагов в радиусе
+                const radius = 200;
+                let killed = 0;
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const enemy = enemies[i];
+                    const enemyWorldX = enemy.x + cameraX;
+                    const playerWorldX = player.x + cameraX;
+                    const dx = Math.abs(enemyWorldX - playerWorldX);
+                    if (dx < radius) {
+                        score += enemy.score;
+                        enemies.splice(i, 1);
+                        killed++;
+                    }
+                }
+                skillCooldowns.rainOfArrows = skill.cooldown;
+                console.log(`☄️ Уничтожено ${killed} врагов!`);
+                updateUI();
+                break;
+        }
+        
+        updateUI();
+    }
+    // ========================================
+    // ПАУЗА
+    // ========================================
+    function togglePause() {
+        isPaused = !isPaused;
+        
+        // Показываем/скрываем сообщение о паузе
+        const pauseMessage = document.getElementById('pauseMessage');
+        if (!pauseMessage) {
+            const div = document.createElement('div');
+            div.id = 'pauseMessage';
+            div.style.cssText = `
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                color: #ffd700;
+                font-size: 3rem;
+                font-weight: bold;
+                text-shadow: 0 0 20px rgba(0,0,0,0.8);
+                z-index: 100;
+                background: rgba(0,0,0,0.7);
+                padding: 30px 60px;
+                border-radius: 20px;
+                border: 2px solid #ffd700;
+            `;
+            div.textContent = '⏸️ ПАУЗА';
+            document.getElementById('gameWorld').appendChild(div);
+        } else {
+            pauseMessage.style.display = isPaused ? 'block' : 'none';
+        }
+    }
     console.log('✅ Скрипт полностью загружен! Ожидаем старта.');
 });
