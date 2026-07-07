@@ -1,910 +1,1246 @@
-// 1. Ждём загрузки страницы
-document.addEventListener('DOMContentLoaded', function() {
-    console.log("Скрипт загружен!");
+document.addEventListener("DOMContentLoaded",()=>{
 
-    // 2. Получаем элементы со страницы
-    const startScreen = document.getElementById('startScreen');
-    const gameScreen = document.getElementById('gameScreen');
-    const endScreen = document.getElementById('endScreen');
-    const startBtn = document.getElementById('startBtn');
-    const playerNameInput = document.getElementById('playerName');
-    const canvas = document.getElementById('gameCanvas');
-    
-    // *** Проверка: нашли ли мы Canvas? ***
-    if (!canvas) {
-        console.error("❌ Ошибка: Не найден Canvas с id='gameCanvas'!");
-        return;
-    }
-    
-    if (!startBtn) {
-        console.error("❌ Ошибка: Не найдена кнопка startBtn!");
-        return;
-    }
+//========================================
+// CANVAS
+//========================================
 
-    // 3. Настраиваем контекст рисования
-    const ctx = canvas.getContext('2d');
-    const CANVAS_WIDTH = 800;
-    const CANVAS_HEIGHT = 400;
+const canvas=document.getElementById("gameCanvas");
+const ctx=canvas.getContext("2d");
 
-    // Устанавливаем реальный размер холста
-    canvas.width = CANVAS_WIDTH;
-    canvas.height = CANVAS_HEIGHT;
-    console.log("✅ Canvas найден и настроен:", canvas.width, 'x', canvas.height);
+canvas.width=1200;
+canvas.height=630;
 
-    // 4. Создаём игрока
-    const player = {
-        x: 100,
-        y: CANVAS_HEIGHT - 100,
-        width: 40,
-        height: 60,
-        speed: 4,
-        facing: 'right'
-    };
+const WIDTH=canvas.width;
+const HEIGHT=canvas.height;
 
-    // 5. Создаём камеру и клавиши
-    let cameraX = 0;
-    let gameRunning = false;
-    let animationId = null;
-    const keys = {
-        left: false,
-        right: false
-    };
-    // ========================================
-// 5.5. ВРАГИ
-// ========================================
-let enemies = [];
-let score = 0;
-let hp = 100;
-let mp = 100;
-let spawnTimer = 0;
-const MAX_ENEMIES = 10;
-const WORLD_END = 2500;
+//========================================
+// UI
+//========================================
 
-// ========================================
-// 5.8. УМЕНИЯ
-// ========================================
-const skills = {
-    shot: {
-        name: 'Выстрел',
-        key: '1',
-        mpCost: 0,
-        cooldown: 0,
-        damage: 15,
-        description: 'Обычный выстрел'
-    },
-    shield: {
-        name: 'Блок',
-        key: '2',
-        mpCost: 5,
-        cooldown: 0,
-        duration: 60, // кадров
-        description: 'Блокирует урон на 1 секунду'
-    },
-    tripleShot: {
-        name: 'Три стрелы',
-        key: '3',
-        mpCost: 10,
-        cooldown: 120, // 2 секунды
-        damage: 40,
-        description: 'Выпускает 3 стрелы'
-    },
-    rainOfArrows: {
-        name: 'Град стрел',
-        key: '4',
-        mpCost: 30,
-        cooldown: 600, // 10 секунд
-        damage: 100,
-        description: 'Уничтожает всех врагов в радиусе'
-    }
+const hpBar=document.getElementById("hpBar");
+const mpBar=document.getElementById("mpBar");
+
+const hpDisplay=document.getElementById("hpDisplay");
+const mpDisplay=document.getElementById("mpDisplay");
+
+const scoreDisplay=document.getElementById("scoreDisplay");
+const timerDisplay=document.getElementById("timerDisplay");
+
+const startScreen=document.getElementById("startScreen");
+const gameScreen=document.getElementById("gameScreen");
+const endScreen=document.getElementById("endScreen");
+
+const pauseScreen=document.getElementById("pauseScreen");
+
+const startBtn=document.getElementById("startBtn");
+const restartBtn=document.getElementById("restartBtn");
+
+const playerName=document.getElementById("playerName");
+
+//========================================
+// GAME
+//========================================
+
+let gameRunning=false;
+let paused=false;
+
+let score=0;
+let gameSeconds=0;
+
+const keys={};
+
+const world={
+
+    width:7000,
+
+    height:HEIGHT,
+
+    ground:HEIGHT-90,
+
+    cameraX:0
+
 };
 
-// Состояние умений
-let skillCooldowns = {
-    shot: 0,
-    shield: 0,
-    tripleShot: 0,
-    rainOfArrows: 0
+//========================================
+// PLAYER
+//========================================
+
+const player={
+
+    x:180,
+
+    y:world.ground,
+
+    width:44,
+
+    height:74,
+
+    speed:5,
+
+    direction:1,
+
+    hp:100,
+
+    maxHp:100,
+
+    mp:100,
+
+    maxMp:100,
+
+    shield:false,
+
+    invincible:false,
+
+    attackCooldown:0
+
 };
 
-let shieldActive = false;
-let shieldTimer = 0;
+//========================================
+// ARRAYS
+//========================================
 
-// ========================================
-// 5.9. ПАУЗА
-// ========================================
-let isPaused = false;
+const enemies=[];
+const arrows=[];
+const rainArrows=[];
+const particles=[];
 
-// ========================================
-// 5.10. РЕГЕНЕРАЦИЯ
-// ========================================
-let regenTimer = 0;
-const HP_REGEN = 2;    // 2 HP в секунду
-const MP_REGEN = 5;    // 5 MP в секунду
+//========================================
+// COOLDOWNS
+//========================================
 
-// ========================================
-// 5.11. ТАЙМЕР
-// ========================================
-let gameTime = 0;
-let timerInterval = null;
+const cooldowns={
 
-// Типы врагов
-const ENEMY_TYPES = {
-    goblin: {
-        name: 'Гоблин',
-        hp: 15,
-        damage: 2,
-        speed: 1.2,
-        width: 30,
-        height: 35,
-        color: '#2ecc71',
-        score: 1
+    shot:0,
+
+    shield:0,
+
+    triple:0,
+
+    rain:0
+
+};
+
+//========================================
+// ENEMY TYPES
+//========================================
+
+const enemyTypes={
+
+    goblin:{
+
+        hp:25,
+
+        speed:2.4,
+
+        damage:4,
+
+        color:"#43A047",
+
+        width:34,
+
+        height:42,
+
+        score:1
+
     },
-    troll: {
-        name: 'Тролль',
-        hp: 30,
-        damage: 5,
-        speed: 0.8,
-        width: 40,
-        height: 45,
-        color: '#8e44ad',
-        score: 2
+
+    orc:{
+
+        hp:55,
+
+        speed:1.8,
+
+        damage:7,
+
+        color:"#8D6E63",
+
+        width:44,
+
+        height:52,
+
+        score:2
+
     },
-    orc: {
-        name: 'Орк',
-        hp: 60,
-        damage: 10,
-        speed: 0.6,
-        width: 35,
-        height: 40,
-        color: '#c0392b',
-        score: 3
+
+    troll:{
+
+        hp:100,
+
+        speed:1,
+
+        damage:12,
+
+        color:"#7E57C2",
+
+        width:58,
+
+        height:66,
+
+        score:4
+
     }
+
 };
 
-function spawnEnemy() {
-    if (enemies.length >= MAX_ENEMIES) return;
-    if (cameraX >= WORLD_END - CANVAS_WIDTH) return;
+//========================================
+// UPDATE UI
+//========================================
 
-    const types = ['goblin', 'troll', 'orc'];
-    const typeName = types[Math.floor(Math.random() * types.length)];
-    const type = ENEMY_TYPES[typeName];
-    
-    // Враг появляется справа за границей экрана
-    const x = CANVAS_WIDTH + 50 + Math.random() * 100;
-    const y = CANVAS_HEIGHT - 80 - Math.random() * 40;
+function updateUI(){
+
+    hpBar.style.width=(player.hp/player.maxHp*100)+"%";
+    mpBar.style.width=(player.mp/player.maxMp*100)+"%";
+
+    hpDisplay.textContent=Math.round(player.hp);
+    mpDisplay.textContent=Math.round(player.mp);
+
+    scoreDisplay.textContent=score;
+
+}
+
+//========================================
+// BACKGROUND
+//========================================
+
+function drawBackground(){
+
+    const sky=ctx.createLinearGradient(
+        0,
+        0,
+        0,
+        HEIGHT
+    );
+
+    sky.addColorStop(0,"#86D8FF");
+    sky.addColorStop(.7,"#B3EB80");
+    sky.addColorStop(1,"#5AB642");
+
+    ctx.fillStyle=sky;
+    ctx.fillRect(0,0,WIDTH,HEIGHT);
+
+    drawMountains();
+    drawForest();
+    drawGround();
+
+}
+
+function drawMountains(){
+
+    ctx.fillStyle="#6B8A73";
+
+    for(let i=-1;i<8;i++){
+
+        const x=i*520-(world.cameraX*.18)%520;
+
+        ctx.beginPath();
+
+        ctx.moveTo(x,HEIGHT);
+
+        ctx.lineTo(x+220,180);
+
+        ctx.lineTo(x+440,HEIGHT);
+
+        ctx.fill();
+
+    }
+
+}
+
+function drawForest(){
+
+    for(let i=0;i<90;i++){
+
+        const x=i*170-world.cameraX*.55;
+
+        if(x<-120||x>WIDTH+120) continue;
+
+        ctx.fillStyle="#5A3825";
+
+        ctx.fillRect(x+18,250,18,120);
+
+        ctx.fillStyle="#2E7D32";
+
+        ctx.beginPath();
+        ctx.arc(x+26,220,48,0,Math.PI*2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(x-2,240,38,0,Math.PI*2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(x+55,240,38,0,Math.PI*2);
+        ctx.fill();
+
+    }
+
+}
+
+function drawGround(){
+
+    ctx.fillStyle="#3C7E2E";
+
+    ctx.fillRect(
+        0,
+        world.ground,
+        WIDTH,
+        HEIGHT-world.ground
+    );
+
+    ctx.fillStyle="#5BAF42";
+
+    for(let i=0;i<WIDTH;i+=18){
+
+        ctx.fillRect(
+
+            i,
+
+            world.ground+
+            Math.sin((i+world.cameraX)/18)*2,
+
+            10,
+
+            4
+
+        );
+
+    }
+
+}
+//========================================
+// PLAYER
+//========================================
+
+function updatePlayer(){
+
+    if(keys["ArrowLeft"]){
+
+        player.direction=-1;
+        player.x-=player.speed;
+
+    }
+
+    if(keys["ArrowRight"]){
+
+        player.direction=1;
+        player.x+=player.speed;
+
+    }
+
+    player.x=Math.max(
+        0,
+        Math.min(
+            world.width-player.width,
+            player.x
+        )
+    );
+
+    if(player.x>WIDTH/2){
+
+        world.cameraX=Math.min(
+
+            player.x-WIDTH/2,
+
+            world.width-WIDTH
+
+        );
+
+    }else{
+
+        world.cameraX=0;
+
+    }
+
+    player.hp=Math.min(
+        player.maxHp,
+        player.hp+0.015
+    );
+
+    player.mp=Math.min(
+        player.maxMp,
+        player.mp+0.03
+    );
+
+    if(player.attackCooldown>0)
+        player.attackCooldown--;
+
+}
+
+//========================================
+// PLAYER DRAW
+//========================================
+
+function drawPlayer(){
+
+    const x=player.x-world.cameraX;
+
+    ctx.save();
+
+    ctx.translate(x,player.y);
+
+    if(player.direction==-1){
+
+        ctx.scale(-1,1);
+        ctx.translate(-player.width,0);
+
+    }
+
+    // щит
+
+    if(player.shield){
+
+        ctx.beginPath();
+
+        ctx.arc(22,30,42,0,Math.PI*2);
+
+        ctx.fillStyle="rgba(80,180,255,.20)";
+        ctx.fill();
+
+        ctx.strokeStyle="#7ad7ff";
+        ctx.lineWidth=3;
+        ctx.stroke();
+
+    }
+
+    // плащ
+
+    ctx.fillStyle="#1f8b4d";
+    ctx.fillRect(6,18,30,48);
+
+    // ноги
+
+    ctx.fillStyle="#5c4033";
+    ctx.fillRect(10,66,8,8);
+    ctx.fillRect(26,66,8,8);
+
+    // голова
+
+    ctx.fillStyle="#f1c89d";
+
+    ctx.beginPath();
+    ctx.arc(21,8,14,0,Math.PI*2);
+    ctx.fill();
+
+    // волосы
+
+    ctx.fillStyle="#795548";
+    ctx.fillRect(5,-2,34,6);
+
+    // глаза
+
+    ctx.fillStyle="#222";
+
+    ctx.beginPath();
+    ctx.arc(17,7,1.5,0,Math.PI*2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(25,7,1.5,0,Math.PI*2);
+    ctx.fill();
+
+    // лук
+
+    ctx.strokeStyle="#8b5a2b";
+    ctx.lineWidth=3;
+
+    ctx.beginPath();
+    ctx.arc(43,26,18,-1.2,1.2);
+    ctx.stroke();
+
+    ctx.restore();
+
+}
+
+//========================================
+// SPAWN ENEMY
+//========================================
+
+function spawnEnemy(typeName){
+
+    const type=enemyTypes[typeName];
 
     enemies.push({
-        type: typeName,
-        x: x,                    // Локальная координата относительно холста
-        y: y,
-        hp: type.hp,
-        maxHp: type.hp,
-        speed: type.speed + (Math.random() - 0.5) * 0.3,
-        damage: type.damage,
-        width: type.width,
-        height: type.height,
-        color: type.color,
-        score: type.score,
-        name: type.name,
-        attackCooldown: 0
+
+        type:typeName,
+
+        x:player.x+WIDTH+Math.random()*800,
+
+        y:world.ground,
+
+        width:type.width,
+
+        height:type.height,
+
+        color:type.color,
+
+        hp:type.hp,
+
+        maxHp:type.hp,
+
+        damage:type.damage,
+
+        speed:type.speed,
+
+        score:type.score,
+
+        attackTimer:0
+
     });
+
 }
 
-// Обновление врагов
-function updateEnemies() {
-    const centerX = CANVAS_WIDTH / 2;
-    const playerWorldX = player.x + cameraX;
+//========================================
+// RANDOM SPAWN
+//========================================
 
-    enemies.forEach((enemy, index) => {
-        // Движение врага к игроку (в мировых координатах)
-        const enemyWorldX = enemy.x + cameraX;
-        const dx = playerWorldX - enemyWorldX;
-        
-        // Если враг слева от игрока — идёт вправо, если справа — влево
-        if (Math.abs(dx) > 20) {
-            enemy.x += Math.sign(dx) * enemy.speed;
+let spawnTimer=180;
+
+function updateSpawner(){
+
+    spawnTimer--;
+
+    if(spawnTimer>0) return;
+
+    spawnTimer=90+Math.random()*120;
+
+    if(enemies.length>=10) return;
+
+    const r=Math.random();
+
+    if(r<0.55){
+
+        spawnEnemy("goblin");
+
+    }else if(r<0.85){
+
+        spawnEnemy("orc");
+
+    }else{
+
+        spawnEnemy("troll");
+
+    }
+
+}
+
+//========================================
+// ENEMIES
+//========================================
+
+function updateEnemies(){
+
+    for(let i=enemies.length-1;i>=0;i--){
+
+        const e=enemies[i];
+
+        if(e.x>player.x){
+
+            e.x-=e.speed;
+
+        }else{
+
+            e.x+=e.speed;
+
         }
 
-        // Атака игрока
-        if (Math.abs(dx) < 40) {
-            if (enemy.attackCooldown <= 0) {
-                hp -= enemy.damage;
-                enemy.attackCooldown = 60; // 1 секунда при 60 FPS
-                updateUI();
-                if (hp <= 0) {
-                    endGame(false);
+        if(Math.abs(e.x-player.x)<40){
+
+            if(e.attackTimer<=0){
+
+                if(!player.shield){
+
+                    player.hp-=e.damage;
+
                 }
+
+                e.attackTimer=45;
+
             }
-        }
-        if (enemy.attackCooldown > 0) {
-            enemy.attackCooldown--;
-        }
-    });
 
-    // Удаляем врагов, которые ушли слишком далеко влево
-    enemies = enemies.filter(enemy => {
-        const enemyWorldX = enemy.x + cameraX;
-        return enemyWorldX > -200;
-    });
-}
-
-// Отрисовка врагов
-function drawEnemies() {
-    enemies.forEach(enemy => {
-        const drawX = enemy.x;
-        
-        ctx.save();
-        ctx.translate(drawX, enemy.y);
-
-        // Тело врага
-        ctx.fillStyle = enemy.color;
-        ctx.shadowColor = 'rgba(0,0,0,0.3)';
-        ctx.shadowBlur = 10;
-        ctx.fillRect(0, 0, enemy.width, enemy.height);
-        
-        // Глаза
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = 'white';
-        ctx.beginPath();
-        ctx.arc(8, 10, 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(enemy.width - 8, 10, 4, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.fillStyle = 'red';
-        ctx.beginPath();
-        ctx.arc(10, 11, 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(enemy.width - 6, 11, 2, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Полоска HP
-        const hpPercent = enemy.hp / enemy.maxHp;
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(0, enemy.height + 5, enemy.width, 5);
-        ctx.fillStyle = hpPercent > 0.5 ? '#2ecc71' : hpPercent > 0.2 ? '#f1c40f' : '#e74c3c';
-        ctx.fillRect(0, enemy.height + 5, enemy.width * hpPercent, 5);
-
-        ctx.restore();
-    });
-}
-
-// ========================================
-// СТРЕЛЬБА (ФИНАЛЬНАЯ ВЕРСИЯ С БОЛЬШИМ РАДИУСОМ)
-// ========================================
-let arrows = [];
-let arrowCooldown = 0;
-
-function shootArrow() {
-    if (arrowCooldown > 0) return;
-    if (!gameRunning) return;
-    
-    const startX = player.x + (player.facing === 'right' ? player.width : -10);
-    const startY = player.y + 20; // Стрела летит из центра персонажа
-    
-    const arrow = {
-        x: startX,
-        y: startY,
-        speed: 9,
-        direction: player.facing === 'right' ? 1 : -1,
-        width: 25,
-        height: 8,
-        damage: 15,
-        worldX: startX + cameraX,
-        worldY: startY,
-        active: true
-    };
-    arrows.push(arrow);
-    arrowCooldown = 15;
-}
-
-function updateArrows() {
-    if (arrowCooldown > 0) arrowCooldown--;
-
-    for (let i = arrows.length - 1; i >= 0; i--) {
-        const arrow = arrows[i];
-        if (!arrow.active) {
-            arrows.splice(i, 1);
-            continue;
         }
 
-        // Двигаем стрелу
-        arrow.x += arrow.speed * arrow.direction;
-        arrow.worldX = arrow.x + cameraX;
+        if(e.attackTimer>0)
+            e.attackTimer--;
 
-        let hit = false;
+        if(e.hp<=0){
 
-        // Проверка попадания по всем врагам
-        for (let j = enemies.length - 1; j >= 0; j--) {
-            const enemy = enemies[j];
-            const enemyWorldX = enemy.x + cameraX;
-            
-            // РАСШИРЕННАЯ ПРОВЕРКА ПОПАДАНИЯ
-            // dx - расстояние по горизонтали (с большим запасом)
-            const dx = Math.abs(arrow.worldX - enemyWorldX);
-            // dy - расстояние по вертикали (с большим запасом)
-            const dy = Math.abs(arrow.y - enemy.y);
-            
-            // Увеличил радиус проверки до 60 пикселей по X и 50 по Y
-            // Это гарантирует попадание даже если враг "выше" или "ниже"
-            if (dx < 60 && dy < 50) {
-                // Наносим урон
-                enemy.hp -= arrow.damage;
-                hit = true;
-                updateUI();
+            score+=e.score;
 
-                // Если враг убит
-                if (enemy.hp <= 0) {
-                    score += enemy.score;
-                    enemies.splice(j, 1);
-                    updateUI();
-                }
+            createDeathEffect(e);
+
+            enemies.splice(i,1);
+
+        }
+
+    }
+
+}
+
+//========================================
+// DRAW ENEMIES
+//========================================
+
+function drawEnemies(){
+
+    enemies.forEach(e=>{
+
+        const x=e.x-world.cameraX;
+
+        ctx.fillStyle=e.color;
+
+        ctx.fillRect(
+
+            x,
+
+            e.y-e.height,
+
+            e.width,
+
+            e.height
+
+        );
+
+        // глаза
+
+        ctx.fillStyle="white";
+
+        ctx.fillRect(
+            x+8,
+            e.y-e.height+12,
+            5,
+            5
+        );
+
+        ctx.fillRect(
+            x+20,
+            e.y-e.height+12,
+            5,
+            5
+        );
+
+        // hp bar
+
+        ctx.fillStyle="#333";
+
+        ctx.fillRect(
+            x,
+            e.y-e.height-14,
+            e.width,
+            6
+        );
+
+        ctx.fillStyle="#ff3d3d";
+
+        ctx.fillRect(
+
+            x,
+
+            e.y-e.height-14,
+
+            e.width*(e.hp/e.maxHp),
+
+            6
+
+        );
+
+    });
+
+}
+//========================================
+// PARTICLES
+//========================================
+
+function createHit(x,y){
+
+    for(let i=0;i<10;i++){
+
+        particles.push({
+
+            x:x,
+
+            y:y,
+
+            vx:(Math.random()-.5)*5,
+
+            vy:(Math.random()-.5)*5,
+
+            life:25,
+
+            color:"#ffd54f"
+
+        });
+
+    }
+
+}
+
+function createDeathEffect(enemy){
+
+    for(let i=0;i<25;i++){
+
+        particles.push({
+
+            x:enemy.x+enemy.width/2,
+
+            y:enemy.y-enemy.height/2,
+
+            vx:(Math.random()-.5)*8,
+
+            vy:(Math.random()-.5)*8,
+
+            life:40,
+
+            color:enemy.color
+
+        });
+
+    }
+
+}
+
+function updateParticles(){
+
+    for(let i=particles.length-1;i>=0;i--){
+
+        const p=particles[i];
+
+        p.x+=p.vx;
+        p.y+=p.vy;
+
+        p.vy+=0.15;
+
+        p.life--;
+
+        if(p.life<=0){
+
+            particles.splice(i,1);
+
+        }
+
+    }
+
+}
+
+function drawParticles(){
+
+    particles.forEach(p=>{
+
+        ctx.globalAlpha=p.life/40;
+
+        ctx.fillStyle=p.color;
+
+        ctx.beginPath();
+
+        ctx.arc(
+
+            p.x-world.cameraX,
+
+            p.y,
+
+            3,
+
+            0,
+
+            Math.PI*2
+
+        );
+
+        ctx.fill();
+
+    });
+
+    ctx.globalAlpha=1;
+
+}
+
+//========================================
+// ARROWS
+//========================================
+
+function shootArrow(offsetY=0){
+
+    arrows.push({
+
+        x:player.x+20,
+
+        y:player.y-40+offsetY,
+
+        speed:12,
+
+        damage:30
+
+    });
+
+}
+
+function updateArrows(){
+
+    for(let i=arrows.length-1;i>=0;i--){
+
+        const a=arrows[i];
+
+        a.x+=a.speed;
+
+        let removed=false;
+
+        for(let j=enemies.length-1;j>=0;j--){
+
+            const e=enemies[j];
+
+            if(
+
+                a.x+18>e.x &&
+
+                a.x<e.x+e.width &&
+
+                a.y+4>e.y-e.height &&
+
+                a.y<e.y
+
+            ){
+
+                e.hp-=a.damage;
+
+                createHit(a.x,a.y);
+
+                arrows.splice(i,1);
+
+                removed=true;
+
                 break;
+
             }
+
         }
 
-        // Удаляем стрелу после попадания или вылета за границу
-        if (hit || arrow.x < -50 || arrow.x > CANVAS_WIDTH + 50) {
-            arrows.splice(i, 1);
+        if(removed) continue;
+
+        if(a.x>world.width){
+
+            arrows.splice(i,1);
+
         }
+
     }
+
 }
 
-function drawArrows() {
-    arrows.forEach(arrow => {
-        ctx.save();
-        ctx.translate(arrow.x, arrow.y);
-        ctx.fillStyle = '#f39c12';
-        ctx.shadowColor = '#f39c12';
-        ctx.shadowBlur = 10;
-        ctx.fillRect(0, 0, arrow.width, arrow.height);
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#d35400';
+function drawArrows(){
+
+    ctx.strokeStyle="#ffe082";
+
+    ctx.lineWidth=3;
+
+    arrows.forEach(a=>{
+
         ctx.beginPath();
-        ctx.moveTo(arrow.direction > 0 ? arrow.width : 0, -3);
-        ctx.lineTo(arrow.direction > 0 ? arrow.width : 0, 8);
-        ctx.lineTo(arrow.direction > 0 ? arrow.width + 8 : -8, 2.5);
-        ctx.fill();
-        ctx.restore();
+
+        ctx.moveTo(
+
+            a.x-world.cameraX,
+
+            a.y
+
+        );
+
+        ctx.lineTo(
+
+            a.x-world.cameraX-18,
+
+            a.y
+
+        );
+
+        ctx.stroke();
+
     });
+
 }
 
-// ========================================
-// 5.7. ОБНОВЛЕНИЕ UI
-// ========================================
-function updateUI() {
-    document.getElementById('hpDisplay').textContent = Math.round(hp);
-    document.getElementById('mpDisplay').textContent = Math.round(mp);
-    document.getElementById('scoreDisplay').textContent = score;
-}
+//========================================
+// RAIN OF ARROWS
+//========================================
 
-    // 6. Функция для показа игрового экрана
-    function showGameScreen() {
-        // Скрываем стартовый экран
-        if (startScreen) {
-            startScreen.classList.remove('active');
-            startScreen.style.display = 'none';
-        }
-        // Показываем игровой экран
-        if (gameScreen) {
-            gameScreen.classList.add('active');
-            gameScreen.style.display = 'flex';
-        }
-        console.log("✅ Игровой экран показан");
-    }
+function updateRain(){
 
-    // 7. Рисуем игрока
-    function drawPlayer() {
-        const drawX = player.x - cameraX;
-        
-        ctx.save();
-        ctx.translate(drawX, player.y);
+    for(let i=rainArrows.length-1;i>=0;i--){
 
-        // Разворот влево
-        if (player.facing === 'left') {
-            ctx.scale(-1, 1);
-            ctx.translate(-player.width, 0);
-        }
+        const r=rainArrows[i];
 
-        // Тело
-        ctx.fillStyle = '#27ae60';
-        ctx.fillRect(0, 0, player.width, player.height);
-        
-        // Голова
-        ctx.fillStyle = '#f5cba7';
-        ctx.beginPath();
-        ctx.arc(player.width / 2, -5, 18, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Волосы
-        ctx.fillStyle = '#8B4513';
-        ctx.beginPath();
-        ctx.arc(player.width / 2 - 12, -10, 10, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(player.width / 2 + 12, -10, 10, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Глаза
-        ctx.fillStyle = 'white';
-        ctx.beginPath();
-        ctx.arc(player.width / 2 - 7, -7, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(player.width / 2 + 7, -7, 5, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.fillStyle = '#2c3e50';
-        ctx.beginPath();
-        ctx.arc(player.width / 2 - 5, -5, 2.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(player.width / 2 + 9, -5, 2.5, 0, Math.PI * 2);
-        ctx.fill();
+        r.y+=r.speed;
 
-        // Ноги
-        ctx.fillStyle = '#2980b9';
-        ctx.fillRect(5, player.height - 12, 10, 12);
-        ctx.fillRect(player.width - 15, player.height - 12, 10, 12);
-        
-        // Сапоги
-        ctx.fillStyle = '#5d4037';
-        ctx.fillRect(2, player.height - 4, 16, 4);
-        ctx.fillRect(player.width - 18, player.height - 4, 16, 4);
+        enemies.forEach(e=>{
 
-        ctx.restore();
-    }
+            if(
 
-    // 8. Рисуем фон
-    function drawBackground() {
-        // Небо
-        const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-        gradient.addColorStop(0, '#87CEEB');
-        gradient.addColorStop(0.7, '#4a7c59');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                Math.abs(r.x-e.x)<30 &&
 
-        // Земля
-        ctx.fillStyle = '#5d8a3c';
-        ctx.fillRect(0, CANVAS_HEIGHT - 40, CANVAS_WIDTH, 40);
+                Math.abs(r.y-(e.y-25))<35
 
-        // Трава (полоски)
-        ctx.strokeStyle = '#4a7c59';
-        ctx.lineWidth = 2;
-        for (let i = 0; i < CANVAS_WIDTH + 20; i += 15) {
-            const offset = (i - cameraX * 0.5) % 30;
-            ctx.beginPath();
-            ctx.moveTo(i, CANVAS_HEIGHT - 40);
-            ctx.lineTo(i - 5 + offset, CANVAS_HEIGHT - 50);
-            ctx.stroke();
-        }
+            ){
 
-        // Деревья
-        const treePositions = [100, 400, 700, 1100, 1500, 1900, 2300, 2700];
-        treePositions.forEach(pos => {
-            const drawX = pos - cameraX;
-            if (drawX > -60 && drawX < CANVAS_WIDTH + 60) {
-                // Ствол
-                ctx.fillStyle = '#5d4037';
-                ctx.fillRect(drawX + 12, CANVAS_HEIGHT - 80, 12, 40);
-                // Крона
-                ctx.fillStyle = '#2d5016';
-                ctx.beginPath();
-                ctx.arc(drawX + 18, CANVAS_HEIGHT - 95, 30, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = '#3a6b1e';
-                ctx.beginPath();
-                ctx.arc(drawX + 5, CANVAS_HEIGHT - 105, 22, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.beginPath();
-                ctx.arc(drawX + 30, CANVAS_HEIGHT - 105, 22, 0, Math.PI * 2);
-                ctx.fill();
+                e.hp-=55;
+
             }
+
         });
 
-        // Облака
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-        const cloudPositions = [150, 500, 900, 1300, 1800, 2300];
-        cloudPositions.forEach(pos => {
-            const drawX = pos - cameraX * 0.3;
-            if (drawX > -100 && drawX < CANVAS_WIDTH + 100) {
-                ctx.beginPath();
-                ctx.arc(drawX, 50, 35, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.beginPath();
-                ctx.arc(drawX + 40, 40, 28, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.beginPath();
-                ctx.arc(drawX + 80, 50, 35, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        });
-    }
+        if(r.y>HEIGHT+50){
 
-    function update() {
-    if (isPaused) return;
-    
-    // Движение игрока
-    let moveX = 0;
-    if (keys.left) {
-        moveX = -player.speed;
-        player.facing = 'left';
-    } else if (keys.right) {
-        moveX = player.speed;
-        player.facing = 'right';
-    }
+            rainArrows.splice(i,1);
 
-    if (moveX !== 0) {
-        const centerX = CANVAS_WIDTH / 2 - player.width / 2;
-        if (player.x + moveX < centerX && cameraX > 0) {
-            cameraX = Math.max(0, cameraX + moveX);
-        } else if (player.x + moveX > centerX && cameraX < 2000) {
-            cameraX = Math.min(2000, cameraX + moveX);
-        } else {
-            const newX = player.x + moveX;
-            if (newX >= 0 && newX + player.width <= CANVAS_WIDTH) {
-                player.x = newX;
-            }
         }
+
     }
 
-    // Регенерация HP и MP
-    regenTimer++;
-    if (regenTimer >= 60) { // каждую секунду
-        hp = Math.min(100, hp + HP_REGEN);
-        mp = Math.min(100, mp + MP_REGEN);
-        regenTimer = 0;
-        updateUI();
-    }
-
-    // Кулдауны умений
-    for (let key in skillCooldowns) {
-        if (skillCooldowns[key] > 0) {
-            skillCooldowns[key]--;
-        }
-    }
-
-    // Обновление щита
-    if (shieldActive) {
-        shieldTimer--;
-        if (shieldTimer <= 0) {
-            shieldActive = false;
-        }
-    }
-
-    // Проверка конца карты (победа)
-    if (cameraX >= 2000 && player.x >= CANVAS_WIDTH / 2 - player.width / 2) {
-        endGame(true);
-    }
 }
 
-    function gameLoop() {
-    if (!gameRunning) return;
+function drawRain(){
 
-    // Очищаем холст
-    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.strokeStyle="#fff59d";
 
-    // Рисуем фон
-    drawBackground();
+    ctx.lineWidth=3;
 
-    // Генерация врагов
-    if (spawnTimer <= 0) {
-        spawnEnemy();
-        spawnTimer = 60 + Math.random() * 120;
-    } else {
-        spawnTimer--;
+    rainArrows.forEach(r=>{
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+
+            r.x-world.cameraX,
+
+            r.y
+
+        );
+
+        ctx.lineTo(
+
+            r.x-world.cameraX-12,
+
+            r.y-24
+
+        );
+
+        ctx.stroke();
+
+    });
+
+}
+
+//========================================
+// SKILLS
+//========================================
+
+function useSkill(id){
+
+    switch(id){
+
+        case 1:
+
+            if(player.mp<5) return;
+            if(cooldowns.shot>0) return;
+
+            player.mp-=5;
+
+            cooldowns.shot=18;
+
+            shootArrow();
+
+        break;
+
+        case 2:
+
+            if(player.mp<20) return;
+            if(cooldowns.shield>0) return;
+
+            player.mp-=20;
+
+            cooldowns.shield=600;
+
+            player.shield=true;
+
+            setTimeout(()=>{
+
+                player.shield=false;
+
+            },5000);
+
+        break;
+
+        case 3:
+
+            if(player.mp<25) return;
+            if(cooldowns.triple>0) return;
+
+            player.mp-=25;
+
+            cooldowns.triple=180;
+
+            shootArrow(-15);
+            shootArrow(0);
+            shootArrow(15);
+
+        break;
+
+        case 4:
+
+            if(player.mp<40) return;
+            if(cooldowns.rain>0) return;
+
+            player.mp-=40;
+
+            cooldowns.rain=900;
+
+            for(let i=0;i<45;i++){
+
+                rainArrows.push({
+
+                    x:player.x-250+Math.random()*500,
+
+                    y:-Math.random()*600,
+
+                    speed:10+Math.random()*6
+
+                });
+
+            }
+
+        break;
+
     }
 
-    // Обновляем врагов
+}
+//========================================
+// COOLDOWNS
+//========================================
+
+function updateCooldowns(){
+
+    for(const key in cooldowns){
+
+        if(cooldowns[key]>0){
+
+            cooldowns[key]--;
+
+        }
+
+    }
+
+}
+
+//========================================
+// TIMER
+//========================================
+
+setInterval(()=>{
+
+    if(!gameRunning) return;
+
+    if(paused) return;
+
+    gameSeconds++;
+
+    const m=Math.floor(gameSeconds/60);
+    const s=gameSeconds%60;
+
+    timerDisplay.textContent=
+
+        String(m).padStart(2,"0")+
+
+        ":"+
+
+        String(s).padStart(2,"0");
+
+},1000);
+
+//========================================
+// GAME LOOP
+//========================================
+
+function gameLoop(){
+
+    if(!gameRunning) return;
+
+    if(paused){
+
+        requestAnimationFrame(gameLoop);
+
+        return;
+
+    }
+
+    updatePlayer();
+
+    updateSpawner();
+
     updateEnemies();
 
-    // Обновляем стрелы
     updateArrows();
 
-    // Рисуем врагов
+    updateRain();
+
+    updateParticles();
+
+    updateCooldowns();
+
+    updateUI();
+
+    drawBackground();
+
     drawEnemies();
 
-    // Рисуем стрелы
-    drawArrows();
-
-    // Рисуем игрока
     drawPlayer();
 
-    // Отладочная информация
-    ctx.fillStyle = 'white';
-    ctx.font = '16px Arial';
-    ctx.fillText('Игрок X: ' + Math.round(player.x), 10, 30);
-    ctx.fillText('Камера X: ' + Math.round(cameraX), 10, 50);
-    ctx.fillText('Врагов: ' + enemies.length, 10, 70);
-    ctx.fillText('Счёт: ' + score, 10, 90);
+    drawArrows();
 
-    // Обновляем логику
-    update();
+    drawRain();
 
-    // Запрашиваем следующий кадр
-    animationId = requestAnimationFrame(gameLoop);
+    drawParticles();
+
+    if(player.hp<=0){
+
+        endGame(false);
+
+        return;
+
+    }
+
+    requestAnimationFrame(gameLoop);
+
 }
 
-    // 11. Запуск игры
-    function startGame() {
-        playerName = name;
-        gameRunning = true;
-        isPaused = false;
-        gameTime = 0;
-        hp = 100;
-        mp = 100;
-        score = 0;
-        enemies = [];
-        arrows = [];
-        
-        // Запускаем таймер
-        if (timerInterval) clearInterval(timerInterval);
-        timerInterval = setInterval(() => {
-            if (!isPaused && gameRunning) {
-                gameTime++;
-                document.getElementById('timerDisplay').textContent = formatTime(gameTime);
-            }
-        }, 1000);
+//========================================
+// START GAME
+//========================================
 
-        console.log('🚀 Игра запускается...');
-        gameRunning = true;
-        
-        // Показываем игровой экран
-        showGameScreen();
-        
-        // Сброс состояния
-        player.x = 100;
-        player.y = CANVAS_HEIGHT - 100;
-        cameraX = 0;
-        keys.left = false;
-        keys.right = false;
+function startGame(){
 
-        // Запускаем игровой цикл
-        if (animationId) cancelAnimationFrame(animationId);
-        gameLoop();
+    score=0;
 
-        console.log('✅ Игровой цикл запущен!');
-    }
-    // ========================================
-    // ЗАВЕРШЕНИЕ ИГРЫ
-    // ========================================
-    function endGame(win) {
-        gameRunning = false;
-        if (animationId) cancelAnimationFrame(animationId);
-        if (timerInterval) clearInterval(timerInterval);
-        
-        // Останавливаем игровой цикл
-        if (animationId) {
-            cancelAnimationFrame(animationId);
-            animationId = null;
-        }
-        
-        // Скрываем игровой экран
-        if (gameScreen) {
-            gameScreen.classList.remove('active');
-            gameScreen.style.display = 'none';
-        }
-        
-        // Показываем экран результатов
-        if (endScreen) {
-            endScreen.classList.add('active');
-            endScreen.style.display = 'flex';
-        }
-        
-        // Обновляем заголовок
-        const message = win ? '🎉 Вы победили!' : '💀 Вы проиграли!';
-        const titleElement = document.querySelector('#endScreen h2');
-        if (titleElement) {
-            titleElement.textContent = message;
-        }
-        
-        // Показываем статистику
-        const container = document.getElementById('resultsContainer');
-        if (container) {
-            container.innerHTML = `
-                <p>👤 Игрок: ${playerName || 'Гость'}</p>
-                <p>⚔️ Убийства: ${score}</p>
-                <p>⏱️ Время: ${formatTime(gameTime)}</p>
-                <p>❤️ HP: ${Math.round(hp)}</p>
-                <hr>
-                <p style="color: #ffd700;">🏆 Ваш результат сохранён!</p>
-            `;
-        }
-        
-        console.log('Игра окончена! Результат:', { playerName, score, time: gameTime });
-    }
+    gameSeconds=0;
 
-    function formatTime(seconds) {
-    const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
-    const secs = String(seconds % 60).padStart(2, '0');
-    return `${mins}:${secs}`;
+    player.hp=player.maxHp;
+
+    player.mp=player.maxMp;
+
+    player.x=180;
+
+    player.shield=false;
+
+    enemies.length=0;
+
+    arrows.length=0;
+
+    rainArrows.length=0;
+
+    particles.length=0;
+
+    startScreen.classList.remove("active");
+
+    endScreen.classList.remove("active");
+
+    gameScreen.classList.add("active");
+
+    gameRunning=true;
+
+    paused=false;
+
+    gameLoop();
+
+}
+
+//========================================
+// END GAME
+//========================================
+
+function endGame(win){
+
+    gameRunning=false;
+
+    gameScreen.classList.remove("active");
+
+    endScreen.classList.add("active");
+
+    const result=document.getElementById("gameResult");
+
+    const container=document.getElementById("resultsContainer");
+
+    result.textContent=
+
+        win ?
+
+        "🏆 Победа" :
+
+        "💀 Поражение";
+
+    container.innerHTML=
+
+    `
+    <p><b>Игрок:</b> ${playerName.value}</p>
+    <p><b>Убийств:</b> ${score}</p>
+    <p><b>Время:</b> ${timerDisplay.textContent}</p>
+    `;
+
+}
+
+//========================================
+// INPUT
+//========================================
+
+document.addEventListener("keydown",e=>{
+
+    keys[e.key]=true;
+
+    if(e.key==="Escape"){
+
+        if(!gameRunning) return;
+
+        paused=!paused;
+
+        pauseScreen.classList.toggle("active");
+
     }
 
-    // 12. Обработчик кнопки "Начать"
-    startBtn.addEventListener('click', function() {
-        const name = playerNameInput.value.trim();
-        if (name) {
-            console.log('Игрок:', name);
-            startGame();
-        }
-    });
+    if(e.key==="1") useSkill(1);
 
-    // 13. Активация кнопки при вводе имени
-    playerNameInput.addEventListener('input', function() {
-        startBtn.disabled = this.value.trim() === '';
-    });
+    if(e.key==="2") useSkill(2);
 
-    // 14. Обработчики клавиш
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'ArrowLeft') {
-            keys.left = true;
-            e.preventDefault();
-        } else if (e.key === 'ArrowRight') {
-            keys.right = true;
-            e.preventDefault();
-        }
-        if (e.key === ' ' || e.key === 'Space') {
-            shootArrow();
-            e.preventDefault();
-        }
-        // ===== УМЕНИЯ =====
-        if (e.key === '1') {
-            useSkill('shot');
-            e.preventDefault();
-        }
-        if (e.key === '2') {
-            useSkill('shield');
-            e.preventDefault();
-        }
-        if (e.key === '3') {
-            useSkill('tripleShot');
-            e.preventDefault();
-        }
-        if (e.key === '4') {
-            useSkill('rainOfArrows');
-            e.preventDefault();
-        }
+    if(e.key==="3") useSkill(3);
 
-        // ===== ПАУЗА =====
-        if (e.key === 'Escape') {
-            togglePause();
-            e.preventDefault();
-        }
-    });
+    if(e.key==="4") useSkill(4);
 
-    document.addEventListener('keyup', function(e) {
-        if (e.key === 'ArrowLeft') {
-            keys.left = false;
-            e.preventDefault();
-        } else if (e.key === 'ArrowRight') {
-            keys.right = false;
-            e.preventDefault();
-        }
-    });
+});
 
-    // 15. Кнопка перезапуска
-    const restartBtn = document.getElementById('restartBtn');
-    if (restartBtn) {
-        restartBtn.addEventListener('click', function() {
-        endScreen.classList.remove('active');
-        endScreen.style.display = 'none';
-        startScreen.classList.add('active');
-        startScreen.style.display = 'flex';
-        playerNameInput.value = '';
-        startBtn.disabled = true;
-        gameRunning = false;
-        if (animationId) cancelAnimationFrame(animationId);
-        if (timerInterval) clearInterval(timerInterval);
-        });
-    }
+document.addEventListener("keyup",e=>{
 
-    // ========================================
-    // ИСПОЛЬЗОВАНИЕ УМЕНИЙ
-    // ========================================
-    function useSkill(skillName) {
-        if (isPaused) return;
-        if (!gameRunning) return;
-        
-        const skill = skills[skillName];
-        const cooldown = skillCooldowns[skillName];
-        
-        // Проверка: достаточно ли MP
-        if (mp < skill.mpCost) {
-            console.log('Недостаточно MP!');
-            return;
-        }
-        
-        // Проверка: готово ли умение
-        if (cooldown > 0) {
-            console.log('Умение на перезарядке!');
-            return;
-        }
-        
-        // Списываем MP
-        mp -= skill.mpCost;
-        
-        // Применяем эффект
-        switch (skillName) {
-            case 'shot':
-                // Обычный выстрел
-                shootArrow();
-                skillCooldowns.shot = 0;
-                break;
-                
-            case 'shield':
-                // Блок — активируем щит
-                shieldActive = true;
-                shieldTimer = skill.duration;
-                skillCooldowns.shield = 0;
-                console.log('🛡️ Щит активирован!');
-                break;
-                
-            case 'tripleShot':
-                // Три стрелы
-                for (let i = 0; i < 3; i++) {
-                    setTimeout(() => {
-                        shootArrow();
-                    }, i * 100);
-                }
-                skillCooldowns.tripleShot = skill.cooldown;
-                break;
-                
-            case 'rainOfArrows':
-                // Град стрел — уничтожает всех врагов в радиусе
-                const radius = 200;
-                let killed = 0;
-                for (let i = enemies.length - 1; i >= 0; i--) {
-                    const enemy = enemies[i];
-                    const enemyWorldX = enemy.x + cameraX;
-                    const playerWorldX = player.x + cameraX;
-                    const dx = Math.abs(enemyWorldX - playerWorldX);
-                    if (dx < radius) {
-                        score += enemy.score;
-                        enemies.splice(i, 1);
-                        killed++;
-                    }
-                }
-                skillCooldowns.rainOfArrows = skill.cooldown;
-                console.log(`☄️ Уничтожено ${killed} врагов!`);
-                updateUI();
-                break;
-        }
-        
-        updateUI();
-    }
-    // ========================================
-    // ПАУЗА
-    // ========================================
-    function togglePause() {
-        isPaused = !isPaused;
-        
-        // Показываем/скрываем сообщение о паузе
-        const pauseMessage = document.getElementById('pauseMessage');
-        if (!pauseMessage) {
-            const div = document.createElement('div');
-            div.id = 'pauseMessage';
-            div.style.cssText = `
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                color: #ffd700;
-                font-size: 3rem;
-                font-weight: bold;
-                text-shadow: 0 0 20px rgba(0,0,0,0.8);
-                z-index: 100;
-                background: rgba(0,0,0,0.7);
-                padding: 30px 60px;
-                border-radius: 20px;
-                border: 2px solid #ffd700;
-            `;
-            div.textContent = '⏸️ ПАУЗА';
-            document.getElementById('gameWorld').appendChild(div);
-        } else {
-            pauseMessage.style.display = isPaused ? 'block' : 'none';
-        }
-    }
-    console.log('✅ Скрипт полностью загружен! Ожидаем старта.');
+    keys[e.key]=false;
+
+});
+
+//========================================
+// BUTTONS
+//========================================
+
+playerName.addEventListener("input",()=>{
+
+    startBtn.disabled=
+
+        playerName.value.trim().length===0;
+
+});
+
+startBtn.addEventListener("click",startGame);
+
+restartBtn.addEventListener("click",()=>{
+
+    location.reload();
+
+});
+
+//========================================
+// FIRST UI UPDATE
+//========================================
+
+updateUI();
+
 });
